@@ -1,0 +1,52 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum TripState {
+  MATCHED
+  LOADING_OTP_PENDING
+  IN_TRANSIT
+  UNLOADING_OTP_PENDING
+  DELIVERED
+  CLOSED
+}
+
+model Trip {
+  id                 String    @id @default(uuid())
+  orderId            String    @unique // Matches formats like "HYD-9821"
+  shipperPhone       String    // WhatsApp phone number of the load supplier/enterprise
+  driverPhone        String    // WhatsApp phone number of the lorry driver
+  receiverPhone      String    // WhatsApp phone number of the end cargo receiver
+  
+  shipperName        String    // e.g., "Apex Textiles"
+  pickupAddress      String    // Manual pickup address description
+  deliveryAddress    String    // Destination drop-off location
+  
+  settledPrice       Float     // Final order price agreed upon by the bidding engine
+  postingFee         Float     @default(100) // Platform service broker margin/fee
+  
+  status             TripState @default(MATCHED)
+  
+  // Real-time location tracking telemetry
+  currentLatitude    Float?
+  currentLongitude   Float?
+  lastLocationUpdate DateTime?
+  
+  // Handshake keys stored as plain text strings for initial debugging
+  loadingOtp         String    // 6-digit loading token shared by shipper
+  unloadingOtp       String    // 6-digit unloading token shared with receiver
+  
+  // Milestone execution timestamps
+  createdAt          DateTime  @default(now())
+  pickupTime         DateTime? // Triggers when loading OTP matches
+  deliveryTime       DateTime? // Triggers when unloading OTP matches
+  
+  // Feedback Engine (1 to 5 Stars scale)
+  driverRatingForShipper Int?  // Driver reviews shipper
+  shipperRatingForDriver Int?  // Shipper reviews driver
+  receiverRatingForDriver Int? // Receiver reviews driver
+}

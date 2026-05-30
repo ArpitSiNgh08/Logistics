@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: billing-bot-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Postgres18
+      POSTGRES_DB: indian_freight_billing_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - billing_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d indian_freight_billing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  webhook-service:
+    image: node:22-alpine              # ◄ Directly pull the engine runtime to completely skip internet metadata builds
+    container_name: billing-bot-nestjs-app
+    working_dir: /usr/src/app
+    ports:
+      - "3000:3000"
+    environment:
+      # ◄ FIXED: Now targets 'postgres-db' host name across the shared bridge network layout instead of localhost!
+      - DATABASE_URL=postgresql://postgres:Postgres18@postgres-db:5432/indian_freight_billing_db?schema=public
+      - PORT=3000
+    volumes:
+      - .:/usr/src/app                 # ◄ LIVE BIND MOUNT: Mounts your local project folder containing your verified dist/ directory
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    networks:
+      - billing_network
+    command: npm run start:prod        # ◄ Runs your package script execution sequence directly over the mount parameters
+    
+volumes:
+  postgres_data:
+
+networks:
+  billing_network:
+    driver: bridge
