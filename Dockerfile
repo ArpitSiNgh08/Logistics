@@ -7,10 +7,10 @@ COPY package*.json ./
 
 RUN npm ci
 
-# Copy application code and build the production output
+# Copy application code, generate Prisma client, then build the production output
 COPY . .
-RUN npm run build
 RUN npx prisma generate
+RUN npm run build
 RUN npm prune --production
 
 EXPOSE 3000
