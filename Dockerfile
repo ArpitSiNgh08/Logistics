@@ -2,18 +2,16 @@ FROM node:22-alpine
 
 WORKDIR /usr/src/app
 
-# Copy manifestations and manifests
+# Copy package manifests and install all dependencies so build tools are available
 COPY package*.json ./
-COPY prisma ./prisma/
 
-# Install only production-specific dependency trees
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Copy all code, including your perfectly compiled local 'dist' folder
+# Copy application code and build the production output
 COPY . .
-
-# Generate the explicit Prisma 7 query client binary adapters
+RUN npm run build
 RUN npx prisma generate
+RUN npm prune --production
 
 EXPOSE 3000
 

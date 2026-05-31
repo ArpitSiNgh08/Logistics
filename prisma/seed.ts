@@ -24,7 +24,7 @@ async function main() {
 
   const sampleTrip = await prisma.trip.create({
     data: {
-      orderId: 'HYD-9821', // Matches the exact blueprint ID from the SRS document
+      orderId: 'HYD-9821', 
       shipperPhone: '919999999999', 
       driverPhone: '918888888888',
       receiverPhone: '917777777777',
@@ -33,8 +33,8 @@ async function main() {
       deliveryAddress: 'Ambattur, Chennai', 
       settledPrice: 28000.0, 
       status: 'MATCHED',
-      loadingOtp: '483712',    // Hardcoded from the SRS document sketch!
-      unloadingOtp: '202645',  // Randomly assigned delivery closeout key
+      loadingOtp: '483712',    
+      unloadingOtp: '202645',  
     },
   });
 
