@@ -85,11 +85,10 @@ export class BillingBotService {
             }
           } 
           
-          // ◄ UPDATED RICH METADATA INQUIRY ENGINE FOR THE RECEIVER
           else if (isReceiver) {
             if (activeTrip.currentLatitude && activeTrip.currentLongitude) {
-              // Construct dynamic Google Maps routing URL string using coordinates
-              const googleMapsLink = `https://www.google.com/maps/search/?api=1&query=${activeTrip.currentLatitude},${activeTrip.currentLongitude}`;
+              // Fixed dynamic Google Maps routing URL string
+              const googleMapsLink = `https://maps.google.com/?q=${activeTrip.currentLatitude},${activeTrip.currentLongitude}`;
               
               // Format timestamps for pristine readability
               const formattedPickup = activeTrip.pickupTime ? new Date(activeTrip.pickupTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
@@ -134,12 +133,11 @@ export class BillingBotService {
             const cleanText = text.trim();
 
             if (cleanText === activeTrip.unloadingOtp) {
-              // 1. Calculate the automated invoice financials
               const settledPrice = activeTrip.settledPrice || 0;
               const postingFee = activeTrip.postingFee || 0;
               const finalPayout = settledPrice - postingFee;
 
-              // 2. Mark the trip as successfully DELIVERED and save completion timestamps
+              // Mark the trip as successfully DELIVERED and save completion timestamps
               await this.prisma.trip.update({
                 where: { id: activeTrip.id },
                 data: { 
@@ -148,8 +146,6 @@ export class BillingBotService {
                 }
               });
 
-              // 3. Broadcast the Rich Automated Invoice Summary to all stakeholders
-              
               // To Receiver
               await this.sendWhatsAppMessage(
                 activeTrip.receiverPhone, 
@@ -189,7 +185,7 @@ export class BillingBotService {
               await this.sendWhatsAppMessage(activeTrip.receiverPhone, `❌ Invalid verification code. Please request the correct 6-digit Unloading OTP from the driver and reply with only the code.`);
             }
           } else {
-            await this.sendWhatsAppMessage(senderPhone, `The delivery for order ${activeTrip.orderId} is currently awaiting verification from the receiver.`);
+            await this.sendWhatsAppMessage(phone, `The delivery for order ${activeTrip.orderId} is currently awaiting verification from the receiver.`);
           }
           break;
 
@@ -197,23 +193,16 @@ export class BillingBotService {
           await this.sendWhatsAppMessage(phone, 'Welcome to the Freight Platform. No actionable tasks are assigned to your profile at this moment.');
       }
     } else {
-      // Catch-all prompt for non-linked telephone addresses
       await this.sendWhatsAppMessage(phone, 'Hello! You do not have an active trip link. Please type your target Order ID (e.g., HYD-9821) to connect to a shipment dashboard.');
     }
   }
 
-
-  /**
-   * Processes live GPS pings streamed from the driver's WhatsApp app.
-   * Saves tracking coordinates directly into the database row.
-   */
   async updateDriverLocation(driverPhone: string, latitude: number, longitude: number) {
     try {
-      // 1. Find the active trip where this driver is currently en route
       const activeTrip = await this.prisma.trip.findFirst({
         where: {
           driverPhone: driverPhone,
-          status: 'IN_TRANSIT', // Telemetry is only recorded while moving
+          status: 'IN_TRANSIT',
         },
       });
 
@@ -222,7 +211,6 @@ export class BillingBotService {
         return;
       }
 
-      // 2. Update the tracking variables in the database row
       const updatedTrip = await this.prisma.trip.update({
         where: { id: activeTrip.id },
         data: {
@@ -238,9 +226,6 @@ export class BillingBotService {
     }
   }
 
-
-
-  // Helper utility calling Meta APIs to emit messages back to the user device
   private async sendWhatsAppMessage(toPhone: string, messageBody: string) {
     const isMock = process.env.USE_MOCK_WHATSAPP === 'true';
 
@@ -253,7 +238,6 @@ export class BillingBotService {
       return;
     }
 
-    // --- Production Meta Cloud API Call ---
     const url = `https://graph.facebook.com/v17.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
     const token = process.env.META_ACCESS_TOKEN;
 
@@ -284,11 +268,7 @@ export class BillingBotService {
     }
   }
 
-
-
-  // ◄ ADD THIS METHOD inside your BillingBotService class
   async getTripTrackingProfile(orderId: string) {
-    // Look up the active trip profile in the database
     const trip = await this.prisma.trip.findUnique({
       where: { orderId },
     });
@@ -300,23 +280,66 @@ export class BillingBotService {
       };
     }
 
-    // Construct the live maps link if coordinates are available
+    // Fixed Google Maps template link layout structure
     const googleMapsLink = trip.currentLatitude && trip.currentLongitude
-      ? `https://www.google.com/maps/search/?q=${trip.currentLatitude},${trip.currentLongitude}`
+      ? `https://maps.google.com/?q=${trip.currentLatitude},${trip.currentLongitude}`
       : null;
 
-    // Return a structured JSON overview package to the caller
     return {
       orderId: trip.orderId,
       status: trip.status,
       shipperName: trip.shipperName,
       pickupAddress: trip.pickupAddress,
       deliveryAddress: trip.deliveryAddress,
-      currentLatitude: trip.currentLatitude ?? null,    // ◄ Null coalescing
-      currentLongitude: trip.currentLongitude ?? null,  // ◄ Null coalescing
+      currentLatitude: trip.currentLatitude ?? null,
+      currentLongitude: trip.currentLongitude ?? null,
       googleMapsLink: googleMapsLink,
       pickupTime: trip.pickupTime,
       lastLocationUpdate: trip.lastLocationUpdate,
+    };
+  }
+
+  // 🛠️ ADDED: This is the missing endpoint worker your controller was looking for
+  async initializeTripProfile(data: {
+    orderId: string;
+    shipperPhone: string;
+    driverPhone: string;
+    receiverPhone: string;
+    shipperName: string;
+    pickupAddress: string;
+    deliveryAddress: string;
+    settledPrice: number;
+  }) {
+    // 1. Programmatically generate secure, random 6-digit authentication keys
+    const generatedLoadingOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const generatedUnloadingOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 2. Map payload schema values directly to your database properties
+    const newTrip = await this.prisma.trip.create({
+      data: {
+        orderId: data.orderId,
+        shipperPhone: data.shipperPhone,
+        driverPhone: data.driverPhone,
+        receiverPhone: data.receiverPhone,
+        shipperName: data.shipperName,
+        pickupAddress: data.pickupAddress,
+        deliveryAddress: data.deliveryAddress,
+        settledPrice: data.settledPrice,
+        postingFee: data.settledPrice * 0.005, // 0.5% standard matching processing cut
+        status: 'MATCHED',
+        loadingOtp: generatedLoadingOtp,
+        unloadingOtp: generatedUnloadingOtp,
+      },
+    });
+
+    console.log(`✅ [DB SYSTEM SUCCESS] Seeded active row for ${data.orderId}. Loading OTP generated: ${generatedLoadingOtp}`);
+    
+    return {
+      success: true,
+      orderId: newTrip.orderId,
+      status: newTrip.status,
+      loadingOtp: newTrip.loadingOtp,
+      unloadingOtp: newTrip.unloadingOtp
     };
   }
 }
