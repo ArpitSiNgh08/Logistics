@@ -71,4 +71,23 @@ export class BillingBotController {
     console.log(`🔍 [TRACKING REQUEST] Fetching details for Order ID: ${orderId}`);
     return this.billingBotService.getTripTrackingProfile(orderId);
   }
+
+  // Add this endpoint right below your @Get(':orderId/track') method:
+  @Post('initialize-trip')
+  @HttpCode(HttpStatus.CREATED)
+  async initializeTrip(@Body() body: {
+    orderId: string;
+    shipperPhone: string;
+    driverPhone: string;
+    receiverPhone: string;
+    shipperName: string;
+    pickupAddress: string;
+    deliveryAddress: string;
+    settledPrice: number;
+  }) {
+    console.log(`📦 [INITIALIZING NEW TRIP] Order ID: ${body.orderId} for Driver: ${body.driverPhone}`);
+    
+    // Fallback if your service method has a slightly different name like 'createTrip'
+    return await this.billingBotService.initializeTripProfile(body); 
+  }
 }
